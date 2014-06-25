@@ -49,20 +49,34 @@ all₃ p (x ∷ xs) = allCons (p x) (all₃ p xs)
 
 -- Exercise: Implement the functions below --
 
-postulate forget∈ : ∀ {A} {x : A} {xs} → x ∈ xs → Nat
--- forget∈ i = {!!}
+forget∈ : ∀ {A} {x : A} {xs} → x ∈ xs → Nat
+forget∈ (zero p) = zero
+forget∈ (suc n) = forget∈ n
 
-postulate find : ∀ {A : Set} {{EqA : Eq A}} (x : A) (xs : List A) → Maybe (x ∈ xs)
--- find x xs = {!!}
+private
+  findHelper : ∀ {A} {EqA : Eq A} (x x₁ : A) (x₂ : ¬ (x ≡ x₁)) (xs : List A) →
+               Maybe (x ∈ xs)
+  findHelper x x₁ p xs = nothing
 
-postulate lookup∈ : ∀ {A : Set} {P : A → Set} {xs x} → All P xs → x ∈ xs → P x
--- lookup∈ xs i = {!!}
+find : ∀ {A : Set} {{EqA : Eq A}} (x : A) (xs : List A) → Maybe (x ∈ xs)
+find x [] = nothing
+find x (y ∷ ys) with (x == y)
+find x (y ∷ ys) | yes p = just (zero p)
+find x (y ∷ ys) | no _  = suc <$> find x ys
 
-postulate forgetAll : ∀ {A} {P : A → Set} {xs} → All P xs → List (Σ A P)
--- forgetAll ps = {!!}
+lookup∈ : ∀ {A : Set} {P : A → Set} {xs x} → All P xs → x ∈ xs → P x
+lookup∈ (p ∷ xs₁) (zero refl) = p
+lookup∈ (p ∷ xs₁) (suc i) = lookup∈ xs₁ i
 
-postulate filterMaybe : {A : Set} {P : A → Set} → (∀ x → Maybe (P x)) → List A → List (Σ A P)
--- filterMaybe p xs = {!!}
+forgetAll : ∀ {A} {P : A → Set} {xs} → All P xs → List (Σ A P)
+forgetAll [] = []
+forgetAll (p ∷ ps) = forgetAll ps
+
+filterMaybe : {A : Set} {P : A → Set} → (∀ x → Maybe (P x)) → List A → List (Σ A P)
+filterMaybe p [] = []
+filterMaybe p (x ∷ xs) with (p x)
+filterMaybe p (x ∷ xs) | nothing = filterMaybe p xs
+filterMaybe p (x ∷ xs) | just x₁ = (x , x₁) ∷ filterMaybe p xs
 
 --- Path ------------------------------------------------------------------
 
@@ -73,16 +87,20 @@ data Path {I : Set} (E : I → I → Set) : I → I → Set where
   _∷_ : ∀ {i j k} → E i j → Path E j k → Path E i k
 
 -- Exercise: Solve the following maze.
-postulate maze : {E : Nat → Nat → Set} →
-                 (∀ {n} → E n (2 * n + 1)) →
-                 (∀ {n} → E n (n div 3)) →
-                 Path E 9 10
--- maze up dn = {!!}
+maze : {E : Nat → Nat → Set} →
+       (∀ {n} → E n (2 * n + 1)) →
+       (∀ {n} → E n (n div 3)) →
+       Path E 9 10
+maze up dn = dn ∷ up ∷ up ∷ up ∷ dn ∷ []
 
 -- Exercise: Implement map and join.
-postulate mapPath : ∀ {I} {E₁ E₂ : I → I → Set} {f : I → I} (g : ∀ {i j} → E₁ i j → E₂ (f i) (f j)) →
-                    ∀ {i j} → Path E₁ i j → Path E₂ (f i) (f j)
--- mapPath g xs = {!!}
+mapPath : ∀ {I} {E₁ E₂ : I → I → Set} {f : I → I}
+          (g : ∀ {i j} → E₁ i j → E₂ (f i) (f j))
+        → ∀ {i j} → Path E₁ i j → Path E₂ (f i) (f j)
+mapPath g [] = []
+mapPath g (x ∷ xs) = (g x) ∷ (mapPath g xs)
 
-postulate joinPath : ∀ {I} {E : I → I → Set} {i j k} → Path E i j → Path E j k → Path E i k
--- joinPath xs ys = {!!}
+joinPath : ∀ {I} {E : I → I → Set} {i j k} → Path E i j → Path E j k → Path E i k
+joinPath [] ys = ys
+joinPath xs [] = xs
+joinPath (x ∷ xs) ys = x ∷ (joinPath xs ys)
