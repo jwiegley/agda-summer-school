@@ -37,14 +37,14 @@ words = words′ ∘ unpackString
 --     filterMaybeIx : {A : Set} {P : A → Set} → (∀ x → Maybe (P x)) →
 --                     (xs : List A) → List (Σ A (λ x → x ∈ xs × P x))
 
+Result : ∀ A xs (P : A → Set) → Set
+Result A xs P = Σ A (λ x → Σ (Any (_≡_ x) xs) (λ _ → P x))
+
 private
   suc′ : ∀ {A} {P : A → Set} {x : A} {xs : List A} →
-         Σ A (λ x₁ → Σ (Any (_≡_ x₁) xs) (λ _ → P x₁)) →
-         Σ A (λ x₁ → Σ (Any (_≡_ x₁) (x ∷ xs)) (λ _ → P x₁))
+         Result A xs P →
+         Result A (x ∷ xs) P
   suc′ (x , p , y) = x , suc p , y
-
-Result : ∀ A xs (P : A → Set) → Set
-Result A xs P = Σ A (λ x → x ∈ xs × P x)
 
 filterMaybeIx : {A : Set} {P : A → Set}
               → (∀ x → Maybe (P x)) → (xs : List A)
