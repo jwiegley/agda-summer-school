@@ -51,7 +51,7 @@ all₃ p (x ∷ xs) = allCons (p x) (all₃ p xs)
 
 forget∈ : ∀ {A} {x : A} {xs} → x ∈ xs → Nat
 forget∈ (zero p) = zero
-forget∈ (suc n) = forget∈ n
+forget∈ (suc n) = suc (forget∈ n)
 
 private
   findHelper : ∀ {A} {EqA : Eq A} (x x₁ : A) (x₂ : ¬ (x ≡ x₁)) (xs : List A) →

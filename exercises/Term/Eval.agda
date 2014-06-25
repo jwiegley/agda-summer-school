@@ -15,5 +15,12 @@ Env : Cxt → Set
 Env Γ = All (El ∘ snd) Γ
 
 -- Exercise: Implement an evaluator for well-typed terms.
-postulate
-  eval : ∀ {Γ a} → Term Γ a → Env Γ → El a
+eval : ∀ {Γ a} → Term Γ a → Env Γ → El a
+eval (var _ i) e = lookup∈ e i
+eval (app t t₁) e = (eval t e) (eval t₁ e)
+eval (lam x a t) e = λ y → eval t (y ∷ e)
+eval (lit n) _ = n
+eval suc _ = suc
+
+test : Nat
+test = eval (app (lam "x" nat (app suc (var "x" (zero refl)))) (lit 10)) []
