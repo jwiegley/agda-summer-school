@@ -24,6 +24,7 @@ data TypeChecked Γ : Expr → Set where
 data CheckedVar (Γ : Cxt) x : Set where
   ok : ∀ a (i : (x , a) ∈ Γ) → CheckedVar Γ x
 
+-- jww (2014-06-25): I don't follow these next four functions
 lookupVar : (Γ : Cxt) (x : Name) → TC (Σ Type λ a → (x , a) ∈ Γ)
 lookupVar [] x = typeError ("Variable out of scope: " & x)
 lookupVar ((y , a) ∷ Γ) x with x == y
