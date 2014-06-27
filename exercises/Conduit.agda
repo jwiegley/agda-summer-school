@@ -1,21 +1,22 @@
 module Conduit where
 
-open import Lists
+open import Relation.Binary.PropositionalEquality
+open ≡-Reasoning
 
-data _≡_ {A : Set} : A → A → Set where
-  refl : {x : A} → x ≡ x
+-- data _≡_ {A : Set} : A → A → Set where
+--   refl : {x : A} → x ≡ x
 
-sym : ∀ {A : Set} (x y : A) → x ≡ y → y ≡ x
-sym x .x refl = refl
+-- sym : ∀ {A : Set} {x y : A} → x ≡ y → y ≡ x
+-- sym {x = x} {y = .x} refl = refl
 
-trans : ∀ {A : Set} (x y z : A) → x ≡ y → y ≡ z → x ≡ z
-trans x .x .x refl refl = refl
+-- trans : ∀ {A : Set} {x y z : A} → x ≡ y → y ≡ z → x ≡ z
+-- trans {x = x} {y = .x} {z = .x} refl refl = refl
 
-subst : ∀ {A : Set} (x y : A) → x ≡ y → ∀ (P : A → Set) → P x → P y
-subst x .x refl P Pa = Pa
+-- subst : ∀ {A B : Set} (P : A → Set) {x y : A} → x ≡ y → P x → P y
+-- subst P refl p = p
 
-cong : ∀ {A : Set} (x y : A) → (∀ (P : A → Set) → P x → P y) → x ≡ y
-cong x y H = H (_≡_ x) refl
+-- cong : ∀ {A B : Set} (f : A → B) {x y} → x ≡ y → f x ≡ f y
+-- cong f refl = refl
 
 id : ∀ {A : Set} → A → A
 id x = x
@@ -34,9 +35,10 @@ const x _ = x
 record IsFunctor (F : Set → Set)
     (fmap : ∀ {A B} → (A → B) → F A → F B) : Set₁ where
   field
-    fun-ident : ∀ {A} (x : F A) → fmap id x ≡ id x
-    fun-assoc : ∀ {A B C} (f : A → B) (g : B → C) (x : F A)
-              → fmap (g ∘ f) x ≡ (fmap g ∘ fmap f) x
+    fun-ident : ∀ {A} → (f : ∀ {B} → B → B) → (x : F A) →
+      (∀ {B} {y : B} → f y ≡ y) → fmap f x ≡ x
+    fun-compose : ∀ {A B C} (f : A → B) (g : B → C) (x : F A) →
+      fmap (g ∘ f) x ≡ (fmap g ∘ fmap f) x
 
 record Functor (F : Set → Set) : Set₁ where
   infixl 4 _<$>_ _<$_
@@ -112,6 +114,9 @@ record Monad (M : Set → Set) : Set₁ where
   _>>=_ : ∀ {A B} → M A → (A → M B) → M B
   m >>= f = join (fmap f m)
 
+  return : ∀ {A} → A → M A
+  return = pure
+
 open Monad {{...}} public
 
 IdentityF : Functor (λ x → x)
@@ -119,8 +124,8 @@ IdentityF = record
     { fmap = λ f x → f x
 
     ; isFunctor = record
-        { fun-ident = λ {A} _ → refl
-        ; fun-assoc = λ {A} _ _ _ → refl
+        { fun-ident   = λ {A} f x z → z
+        ; fun-compose = λ {A} _ _ _ → refl
         }
     }
 
@@ -166,8 +171,8 @@ MaybeF = record
     { fmap = fmap′
 
     ; isFunctor = record
-        { fun-ident = fun-ident′
-        ; fun-assoc = fun-assoc′
+        { fun-ident   = fun-ident′
+        ; fun-compose = fun-compose′
         }
     }
   where
@@ -175,15 +180,16 @@ MaybeF = record
     fmap′ f Nothing = Nothing
     fmap′ f (Just a) = Just (f a)
 
-    fun-ident′ : ∀ {A : Set} (x : Maybe A) → fmap′ id x ≡ id x
-    fun-ident′ Nothing = refl
-    fun-ident′ (Just _)  = refl
+    fun-ident′ : ∀ {A} → (f : ∀ {B} → B → B) → (x : Maybe A) →
+                   (∀ {B} {y : B} → f y ≡ y) → fmap′ f x ≡ x
+    fun-ident′ f Nothing h  = refl
+    fun-ident′ f (Just _) h = f (cong Just h)
 
-    fun-assoc′
+    fun-compose′
       : ∀ {A B C : Set} (f : A → B) (g : B → C) (x : Maybe A)
       → fmap′ (λ x₁ → g (f x₁)) x ≡ fmap′ g (fmap′ f x)
-    fun-assoc′ _ _ Nothing  = refl
-    fun-assoc′ _ _ (Just _) = refl
+    fun-compose′ _ _ Nothing  = refl
+    fun-compose′ _ _ (Just _) = refl
 
 MaybeA : Applicative Maybe
 MaybeA = record
@@ -256,14 +262,14 @@ MaybeM = record
     join′ (Just a)       = a
 
     monad-law-1′ : ∀ {X} (x : Maybe (Maybe (Maybe X))) →
-               join′ (fmap {{MaybeF}} join′ x) ≡ join′ (join′ x)
+      join′ (fmap {{MaybeF}} join′ x) ≡ join′ (join′ x)
     monad-law-1′ Nothing = refl
     monad-law-1′ (Just Nothing) = refl
     monad-law-1′ (Just (Just Nothing)) = refl
     monad-law-1′ (Just (Just (Just _))) = refl
 
     monad-law-2′ : ∀ {X} (x : Maybe (Maybe X)) →
-               join′ (fmap {{MaybeF}} Just x) ≡ x
+      join′ (fmap {{MaybeF}} Just x) ≡ x
     monad-law-2′ Nothing = refl
     monad-law-2′ (Just Nothing) = refl
     monad-law-2′ (Just (Just _)) = refl
@@ -273,7 +279,7 @@ MaybeM = record
     monad-law-3′ (Just _) = refl
 
     monad-law-5′ : ∀ {X Y} (f : X → Y) (x : Maybe (Maybe X)) →
-               join′ (fmap {{MaybeF}} (fmap {{MaybeF}} f) x) ≡ fmap f (join′ x)
+      join′ (fmap {{MaybeF}} (fmap {{MaybeF}} f) x) ≡ fmap f (join′ x)
     monad-law-5′ f Nothing = refl
     monad-law-5′ f (Just Nothing) = refl
     monad-law-5′ f (Just (Just _)) = refl
@@ -283,27 +289,28 @@ data Either (E A : Set) : Set where
   Right : ∀ (a : A) → Either E A
 
 EitherF : ∀ {E : Set} → Functor (Either E)
-EitherF = record
+EitherF {E} = record
     { fmap = fmap′
 
     ; isFunctor = record
-        { fun-ident = fun-ident′
-        ; fun-assoc = fun-assoc′
+        { fun-ident   = fun-ident′
+        ; fun-compose = fun-compose′
         }
     }
   where
-    fmap′ : ∀ {E A B : Set} → (A → B) → Either E A → Either E B
+    fmap′ : ∀ {A B : Set} → (A → B) → Either E A → Either E B
     fmap′ f (Left e)  = Left e
     fmap′ f (Right a) = Right (f a)
 
-    fun-ident′ : ∀ {E A : Set} (x : Either E A) → fmap′ id x ≡ id x
-    fun-ident′ (Left _)  = refl
-    fun-ident′ (Right _) = refl
+    fun-ident′ : ∀ {A} → (f : ∀ {B} → B → B) → (x : Either E A) →
+                   (∀ {B} {y : B} → f y ≡ y) → fmap′ f x ≡ x
+    fun-ident′ f (Left _)  h = refl
+    fun-ident′ f (Right _) h = f (cong Right h)
 
-    fun-assoc′ : ∀ {E A B C : Set} (f : A → B) (g : B → C) (x : Either E A)
+    fun-compose′ : ∀ {A B C : Set} (f : A → B) (g : B → C) (x : Either E A)
                → (fmap′ (λ x₁ → g (f x₁))) x ≡ fmap′ g ((fmap′ f) x)
-    fun-assoc′ _ _ (Left _)  = refl
-    fun-assoc′ _ _ (Right _) = refl
+    fun-compose′ _ _ (Left _)  = refl
+    fun-compose′ _ _ (Right _) = refl
 
 EitherA : ∀ {E : Set} → Applicative (Either E)
 EitherA = record
@@ -393,3 +400,138 @@ EitherM = record
     monad-law-5′ f (Left _) = refl
     monad-law-5′ f (Right (Left _)) = refl
     monad-law-5′ f (Right (Right _)) = refl
+
+data EitherT (E : Set) (M : Set → Set) (A : Set) : Set where
+    mkEitherT : ∀ (m : M (Either E A)) → EitherT E M A
+
+runEitherT : ∀ {E A B : Set} {M : Set → Set} → EitherT E M A → M (Either E A)
+runEitherT (mkEitherT m) = m
+
+EitherTF : ∀ {E : Set} {M : Set → Set} {{m-dict : Monad M}}
+         → Functor (EitherT E M)
+EitherTF {E} {M} {{m-dict}} = record
+    { fmap = fmapM′
+
+    ; isFunctor = record
+        { fun-ident   = {!!} -- fun-ident′
+        ; fun-compose = fun-compose′
+        }
+    }
+  where
+    fmapM′ : ∀ {X Y : Set} → (X → Y) → EitherT E M X → EitherT E M Y
+    fmapM′ f (mkEitherT x) =
+        mkEitherT (fmap {{base}} (fmap {{EitherF}} f) x)
+      where
+        base = Monad.base-functor m-dict
+
+    fun-ident′ : ∀ {A} → (f : ∀ {B} → B → B) → (x : EitherT E M A) →
+                   (∀ {B} {y : B} → f y ≡ y) → fmapM′ f x ≡ x
+    fun-ident′ f (mkEitherT m) h =
+        cong mkEitherT (IsFunctor.fun-ident {!!} f m h)
+      where
+        base     = Monad.base-functor m-dict
+        fun-laws = Functor.isFunctor base
+
+    fun-compose′ : ∀ {A B C : Set} (f : A → B) (g : B → C) (x : EitherT E M A)
+               → fmapM′ (g ∘ f) x ≡ fmapM′ g (fmapM′ f x)
+    fun-compose′ f g (mkEitherT x) =
+        begin
+            fmapM′ (g ∘ f) (mkEitherT x)
+        ≡⟨ refl ⟩
+            mkEitherT (fmap (fmap {{EitherF}} (g ∘ f)) x)
+        ≡⟨ refl ⟩
+            mkEitherT (fmap (λ y → fmap {{EitherF}} g (fmap {{EitherF}} f y)) x)
+        ≡⟨ refl ⟩
+            mkEitherT (fmap (λ y → fmap {{EitherF}} g (fmap {{EitherF}} f y)) x)
+        ≡⟨ refl ⟩
+            mkEitherT (fmap {{base}} (fmap {{EitherF}} g ∘ fmap {{EitherF}} f) x)
+        ≡⟨ refl ⟩
+            mkEitherT (fmap {{base}} (fmap {{EitherF}} g) (fmap {{base}} (fmap {{EitherF}} f) x))
+        ≡⟨ refl ⟩
+            fmapM′ g (fmapM′ f (mkEitherT x))
+        ∎
+      where
+        base = Monad.base-functor m-dict
+
+EitherTA : ∀ {E : Set} {M : Set → Set} {Monad M} → Applicative (EitherT E M)
+EitherTA = record
+    { functor = EitherTF
+
+    ; pure    = pure ∘ Right
+    ; apply   = apply′
+
+    ; isApplicative = record
+        { app-ident        = app-ident′
+        ; app-composition  = app-composition′
+        ; app-homomorphism = {!!}
+        ; app-interchange  = app-interchange′
+
+        ; app-fmap-unit    = app-fmap-unit′
+        }
+    }
+  where
+    apply′ : ∀ {E A B} {M : Set → Set} {Monad M}
+           → EitherT E M (A → B) → EitherT E M A → EitherT E M B
+    apply′ f x = {!!}
+
+    app-ident′ : ∀ {E A} {M : Set → Set} {Monad M}
+                   (x : EitherT E M A) → apply′ (pure (pure id)) x ≡ x
+    app-ident′ x = {!!}
+
+    app-composition′
+      : ∀ {E X Y Z} {M : Set → Set} {Monad M}
+          (u : EitherT E M (Y → Z)) (v : EitherT E M (X → Y)) (w : EitherT E M X)
+      → apply′ (apply′ (apply′ (pure _$_) u) v) w
+          ≡ apply′ u (apply′ v w)
+    app-composition′ u v w = {!!}
+
+    app-interchange′ : ∀ {E X Y} {M : Set → Set} {Monad M}
+                         (u : EitherT E M (X → Y)) (y : X)
+                     → apply′ u (pure y) ≡ apply′ (pure (λ f → f y)) u
+    app-interchange′ u y = {!!}
+
+    app-fmap-unit′ : ∀ {E X Y : Set} {M : Set → Set} {Monad M}
+                       (f : X → Y) (x : EitherT E M X)
+                   → apply′ (pure f) x ≡ fmap f x
+    app-fmap-unit′ f x = {!!}
+
+EitherTM : ∀ {E : Set} {M : Set → Set} {Monad M} → Monad (EitherT E M)
+EitherTM = record
+    { base-functor = EitherTF
+    ; applicative  = EitherTA
+
+    ; join = join′
+
+    ; isMonad = record
+        { monad-law-1 = monad-law-1′
+        ; monad-law-2 = monad-law-2′
+        ; monad-law-3 = monad-law-3′
+        ; monad-law-4 = {!!}
+        ; monad-law-5 = monad-law-5′
+        }
+    }
+  where
+    join′ : ∀ {E A} {M : Set → Set} {Monad M}
+          → EitherT E M (EitherT E M A) → EitherT E M A
+    join′ x = {!!}
+
+    monad-law-1′ : ∀ {E X} {M : Set → Set} {Monad M}
+                     (x : EitherT E M (EitherT E M (EitherT E M X)))
+                 → join′ (fmap {{EitherTF}} join′ x) ≡ join′ (join′ x)
+    monad-law-1′ x = {!!}
+
+    monad-law-2′ : ∀ {E X} {M : Set → Set} {Monad M}
+                     (x : EitherT E M (EitherT E M X))
+                 → join′ (fmap {{EitherTF}} pure x) ≡ x
+    monad-law-2′ x = {!!}
+
+    monad-law-3′ : ∀ {E X} {M : Set → Set} {Monad M}
+                     (x : EitherT E M X)
+                 → join′ (pure x) ≡ x
+    monad-law-3′ x = {!!}
+
+    monad-law-5′ : ∀ {E X Y} {M : Set → Set} {Monad M}
+                     (f : X → Y) (x : EitherT E M (EitherT E M X))
+                 → join′ (fmap {{EitherTF}} (fmap {{EitherTF}} f) x)
+                     ≡ fmap f (join′ x)
+    monad-law-5′ f x = {!!}
